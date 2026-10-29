@@ -1,0 +1,85 @@
+name: Full CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+
+env:
+  AWS_REGION: ap-south-1
+  ECR_REPOSITORY: full-cicd-capstone
+  CONTAINER_NAME: capstone-app
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag:    ${{ steps.meta.outputs.image_tag }}
+      ecr_registry: ${{ steps.login-ecr.outputs.registry }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r app/requirements.txt pytest
+
+      - name: Run tests
+        working-directory: app
+        run: pytest -v
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image metadata
+        id: meta
+        run: echo "image_tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build, tag, and push image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG:    ${{ steps.meta.outputs.image_tag }}
+        run: |
+          cd app
+          docker build -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" .
+          docker push       "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+  deploy:
+    needs: test-and-build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.0
+        env:
+          ECR_REGISTRY:   ${{ needs.test-and-build.outputs.ecr_registry }}
+          ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}
+          IMAGE_TAG:      ${{ needs.test-and-build.outputs.image_tag }}
+          AWS_REGION:     ${{ env.AWS_REGION }}
+        with:
+          host:     ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key:      ${{ secrets.EC2_SSH_KEY }}
+          envs:     ECR_REGISTRY,ECR_REPOSITORY,IMAGE_TAG,AWS_REGION
+          script: |
+            aws ecr get-login-password --region "$AWS_REGION" \
+              | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+
+            docker pull "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+            docker stop  capstone-app || true
+            docker rm    capstone-app || true
+
+            docker run -d --name capstone-app -p 80:5000 \
+              -e APP_VERSION="$IMAGE_TAG" \
+              "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+            docker image prune -f

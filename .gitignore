@@ -1,10 +1,12 @@
 # Terraform
-**/.terraform/
-**/.terraform.lock.hcl
+.terraform/
 *.tfstate
 *.tfstate.*
+*.tfstate.lock.info
 *.tfplan
 terraform.tfvars
+crash.log
+# NOTE: .terraform.lock.hcl IS intentionally NOT ignored — commit it.
 
 # Secrets / keys
 *.pem
@@ -17,5 +19,7 @@ __pycache__/
 *.pyc
 .venv/
 
-# OS
+# IDE / OS
+.idea/
+.vscode/
 .DS_Store

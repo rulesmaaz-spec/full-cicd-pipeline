@@ -1,14 +1,19 @@
-FROM python:3.11-slim
+# ---- Stage 1: build ----
+FROM python:3.11-slim-bookworm AS builder
 
-RUN groupadd -r appgroup && useradd -r -g appgroup appuser
-WORKDIR /app
+WORKDIR /build
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# ---- Stage 2: runtime ----
+FROM gcr.io/distroless/python3-debian12:nonroot
+
+WORKDIR /app
+COPY --from=builder /install /usr/local/lib/python3.11/site-packages
 COPY app.py .
 
-USER appuser
+USER nonroot:nonroot
 EXPOSE 5000
 
-HEALTHCHECK --interval=30s --timeout=3s CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')" || exit 1
-
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+ENTRYPOINT ["python3", "-m", "gunicorn"]
+CMD ["--bind", "0.0.0.0:5000", "--workers", "2", "--access-logfile", "-", "app:app"]

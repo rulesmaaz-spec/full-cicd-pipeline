@@ -1,0 +1,33 @@
+I could only read the repo's front page and README. GitHub blocked me from opening the `terraform/` folder, the workflow file and `.gitignore`, so everything below is about the README and what the page shows.
+
+**What's good**
+- Images now load, and the Mermaid diagram renders. The earlier path problems are fixed.
+- The folder layout is clean: `.github/workflows`, `app`, `docs`, `terraform`, `.gitignore`, `README.md`.
+- The repo description is clear and specific.
+- The strongest parts are the gated deploy (it only runs if tests pass), the commit-SHA image tags instead of `:latest`, the IAM role for the pull from ECR, the non-root container user and the `HEALTHCHECK`. These show real engineering thinking.
+
+**Fix these first, because they make the repo look unfinished**
+1. **"What I Learned" and "Future Improvements" still contain my template text** ("A real problem you hit and how you fixed it", "Honest list of next steps"). Recruiters notice this immediately. Write two or three real lines in each. Good candidates for Future Improvements: GitHub OIDC instead of static AWS keys, SSM instead of SSH, HTTPS, Terraform remote state, a staging environment.
+2. **"Run locally" is a template leftover.** It has `USERNAME/REPO` placeholders, plus `.env.example` and `docker compose up`, and I see no such files at the repo root. Replace it with commands that really work, such as `docker build` and `docker run -p 8080:80`, or delete the section.
+3. **Prerequisites says "(versions)".** Fill in the real versions or remove the line.
+4. **The Tech Stack table is wrong.** It lists RDS and ALB, but your own README describes EC2, ECR, IAM and security groups. Change it to Python/Flask, Gunicorn, Docker, GitHub Actions, AWS (EC2, ECR, IAM), Terraform, pytest.
+5. **Scanning mismatch.** The repo description says the pipeline scans with Trivy and Gitleaks, but the README, diagram and flow never mention them. Open `deploy.yml` and check that both steps exist. If they do, add them to the diagram and flow, since that is a selling point. If not, remove them from the description.
+6. **There's no CI badge** at the top. Add it under the title.
+7. **The old one-line "CI/CD Pipeline" section duplicates the numbered "Pipeline Flow."** Delete the one-liner.
+
+**Wording that overclaims**
+- "Multi-Stage Dockerfile" with a `python:3.11-slim` base: a slim base image is not a multi-stage build. Check the Dockerfile and rename the bullet if it's single-stage.
+- "100% Terraform Provisioned": say that you run `terraform apply` yourself, and the pipeline only deploys the app.
+- "Production-Ready" and "running in production": call it production-style, since this is a personal project.
+- "Zero manual commands": it's true for deployments, but add "after the one-time Terraform setup".
+
+**Security checks I couldn't do. Please confirm yourself**
+- Your local folder showed `terraform.tfstate`, `terraform.tfstate.backup`, `terraform.tfvars` and the `.terraform/` provider folder. Open the `terraform/` folder on GitHub. If any of those exist there, remove them from Git, add them to `.gitignore`, and rotate your AWS keys.
+- Make sure your screenshots don't show your public IP, account ID or keys.
+- Note honestly in the README that SSH deploy needs port 22 open in the security group. Mention how you restricted it, for example to GitHub's IP ranges or your own, or that this is a known limitation.
+
+**Smaller points**
+- Only 5 commits. Commit your fixes in small steps with clear messages like `docs: add tech stack`, which makes the history look real.
+- The username rename will not break relative image links.
+
+After these fixes this is a solid fresher portfolio project. Paste your `deploy.yml` here and I'll check whether the pipeline matches the README claims.

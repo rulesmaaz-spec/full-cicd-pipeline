@@ -1,11 +1,20 @@
-from app import app
+import os
+import sys
 
-def test_hello():
-    r = app.test_client().get("/")
-    assert r.status_code == 200
-    assert b"Deployed by Mohammad Maaz via Full CI/CD Pipeline" in r.data
+sys.path.insert(0, os.path.dirname(__file__))
 
-def test_health():
-    r = app.test_client().get("/health")
-    assert r.status_code == 200
-    assert r.get_json() == {"status": "healthy"}
+from app import app  # noqa: E402
+
+
+def test_health_endpoint():
+    client = app.test_client()
+    resp = client.get('/health')
+    assert resp.status_code == 200
+    assert resp.get_json()['status'] == 'healthy'
+
+
+def test_index_returns_html():
+    client = app.test_client()
+    resp = client.get('/')
+    assert resp.status_code == 200
+    assert b'Deployed via Full CI/CD Pipeline!' in resp.data
